@@ -1,0 +1,4 @@
+.vscode
+data/*/converted_*.txt
+data/*/id2entity.txt
+data/*/id2relation.txt
