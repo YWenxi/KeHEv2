@@ -60,7 +60,7 @@ def preprocess_combined_datasets(train_files, test_files, entity2id, relation2id
         combined_triples = np.concatenate(combined_triples, axis=0)
         save_triples(combined_triples, os.path.join(output_dir, f'converted_normal_{split}.txt'))
 
-def preprocess_isA_datasets(train_files, test_files, entity2id, relation2id, output_dir):
+def preprocess_isA_datasets(train_files, test_files, entity2id, relation2id, output_dir, filters=["type", "isa"]):
     """Create and save isA (type/isa) datasets."""
     for split, files in zip(['train', 'test'], [train_files, test_files]):
         isA_triples = []
@@ -69,6 +69,8 @@ def preprocess_isA_datasets(train_files, test_files, entity2id, relation2id, out
             isA_triples.append(triples)
         
         isA_triples = np.concatenate(isA_triples, axis=0)
+        if filters is not None:
+            isA_triples = isA_triples[np.isin(isA_triples[:, 1], filters)]
         isA_triples = convert_triples_to_id(isA_triples, entity2id, relation2id)
         save_triples(isA_triples, os.path.join(output_dir, f'converted_isA_{split}.txt'))
 
@@ -111,7 +113,7 @@ def main(dataset_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Preprocess YAGO or DBpedia datasets.')
-    parser.add_argument('--dataset', type=str, required=True, 
+    parser.add_argument('--dataset', type=str, default="data/yago",
                         help='Path to the dataset directory (e.g., data/yago or data/dp)')
 
     args = parser.parse_args()
