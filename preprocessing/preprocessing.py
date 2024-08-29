@@ -115,7 +115,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Preprocess YAGO or DBpedia datasets.')
     parser.add_argument('--dataset', type=str, default="data/yago",
                         help='Path to the dataset directory (e.g., data/yago or data/dp)')
-
     args = parser.parse_args()
 
     main(args.dataset)
