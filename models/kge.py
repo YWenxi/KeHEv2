@@ -1,5 +1,6 @@
 import tensorflow as tf
 from numpy import sqrt
+from pathlib import Path
 
 
 class BaseKGEModel(tf.keras.Model):
@@ -21,14 +22,25 @@ class BaseKGEModel(tf.keras.Model):
         ) 
         
         # Learnable threshold parameters for pruning
-        self.entity_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32)
-        self.relation_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32)
+        self.entity_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32, name="entity_thershold")
+        self.relation_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32, name="relation_threshold")
     
+    # ----------------Soft Threshold------------------------ 
     def soft_thresholding(self, embeddings, threshold):
         # Soft threshold function using sigmoid
         g_s = tf.nn.sigmoid(threshold)
         pruned_embeddings = tf.sign(embeddings) * tf.nn.relu(tf.abs(embeddings) - g_s)
         return pruned_embeddings
+    
+    def pruned_entity_embedding(self, indices):
+        embeddings = self.entity_embedding(indices)
+        return self.soft_thresholding(embeddings, self.entity_threshold)
+
+    def pruned_relation_embedding(self, indices):
+        embeddings = self.relation_embedding(indices)
+        return self.soft_thresholding(embeddings, self.relation_threshold)
+    
+    # -----------------------------------------------------
     
     def compute_score(self, heads, relations, tails):
         """Compute the score for a batch of triples. This should be implemented by subclasses."""
@@ -131,3 +143,15 @@ class KGEModel(tf.keras.Model):
     def compute_loss(self, pos_scores, neg_scores):
         """Compute the margin-based ranking loss."""
         return tf.reduce_mean(tf.maximum(0.0, self.kge.margin + pos_scores - neg_scores))
+    
+    def save_embedding(self, dir_path):
+        assert isinstance(self.kge, tf.keras.Model)
+        self.kge.save_weights(Path(dir_path)/ "kge_weights.h5")
+        
+    def load_embedding(self, path):
+        path = Path(path)
+        if not path.exists():
+            raise FileExistsError
+        if path.is_dir():
+            path = path / "kge_weights.h5"
+        self.kge.load_weights(path)
