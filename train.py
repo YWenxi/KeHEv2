@@ -185,8 +185,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Generate experiment name based on configurations
-    exp_name = f"{args.model_name}_dim{args.embedding_dim}_lr{args.learning_rate}_beta{args.beta}_bs{args.batch_size}_"\
-                f"marginkge{args.margin_kge}_marginhier{args.margin_hier}_data{args.data_dir[5:]}"
+    exp_name = f"{args.model_name}_data{args.data_dir[5:]}_PEP{args.pep}_dim{args.embedding_dim}_lr{args.learning_rate}_beta{args.beta}_bs{args.batch_size}_"\
+                f"marginkge{args.margin_kge}_marginhier{args.margin_hier}"
     
     data_loader = DataLoader(data_dir=args.data_dir, batch_size=args.batch_size, method=2)
     model = KGEModel(model_name=args.model_name, num_entities=data_loader.num_entities, 
