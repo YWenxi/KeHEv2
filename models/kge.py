@@ -1,4 +1,6 @@
 import tensorflow as tf
+from numpy import sqrt
+
 
 class BaseKGEModel(tf.keras.Model):
     def __init__(self, num_entities, num_relations, embedding_dim):
@@ -8,8 +10,16 @@ class BaseKGEModel(tf.keras.Model):
         self.embedding_dim = embedding_dim
         
         # Initialize embeddings
-        self.entity_embedding = tf.keras.layers.Embedding(num_entities, embedding_dim)
-        self.relation_embedding = tf.keras.layers.Embedding(num_relations, embedding_dim)
+        uniform_range = 6 / sqrt(self.embedding_dim)
+        self.entity_embedding = tf.keras.layers.Embedding(
+            num_entities, embedding_dim, 
+            embeddings_initializer=tf.keras.initializers.RandomUniform(minval=-uniform_range, maxval=uniform_range)
+        )
+        self.relation_embedding = tf.keras.layers.Embedding(
+            num_relations, embedding_dim,
+            embeddings_initializer=tf.keras.initializers.RandomUniform(minval=-uniform_range, maxval=uniform_range)
+        )
+        
     
     def compute_score(self, heads, relations, tails):
         """Compute the score for a batch of triples. This should be implemented by subclasses."""
@@ -17,7 +27,10 @@ class BaseKGEModel(tf.keras.Model):
     
     def call(self, inputs):
         """Forward pass to compute scores for a batch of triples."""
-        heads, relations, tails = inputs
+        if isinstance(inputs, tuple):
+            heads, relations, tails = inputs
+        else:
+            heads, relations, tails = inputs[:, 0], inputs[:, 1], inputs[:, 2]
         return self.compute_score(heads, relations, tails)
     
     def normalize_embeddings(self):
@@ -36,13 +49,14 @@ class TransE(BaseKGEModel):
             # TODO in the future
             raise NotImplementedError
     
-    def compute_score(self, heads, relations, tails):
+    def compute_score(self, heads, relations, tails, ord=2):
         """Compute the TransE score for a batch of triples."""
         head_embeds = self.entity_embedding(heads)
         relation_embeds = self.relation_embedding(relations)
         tail_embeds = self.entity_embedding(tails)
         
-        score = tf.reduce_sum(tf.abs(head_embeds + relation_embeds - tail_embeds), axis=1)
+        # score = tf.reduce_sum(tf.abs(head_embeds + relation_embeds - tail_embeds), axis=1)
+        score = tf.norm(head_embeds + relation_embeds - tail_embeds, axis=1, ord=ord)
         return score
     
     def normalize_embeddings(self):
@@ -89,16 +103,17 @@ class RotatE(BaseKGEModel):
 class KGEModel(tf.keras.Model):
     def __init__(self, model_name, num_entities, num_relations, embedding_dim, margin=1.0):
         super(KGEModel, self).__init__()
+        self.model_name = model_name
         if model_name == 'TransE':
-            self.model = TransE(num_entities, num_relations, embedding_dim, margin)
+            self.kge = TransE(num_entities, num_relations, embedding_dim, margin)
         elif model_name == 'RotatE':
-            self.model = RotatE(num_entities, num_relations, embedding_dim, margin)
+            self.kge = RotatE(num_entities, num_relations, embedding_dim, margin)
         else:
             raise ValueError(f"Unsupported model name: {model_name}")
     
     def call(self, inputs):
         """Forward pass to compute scores for a batch of triples."""
-        return self.model(inputs)
+        return self.kge(inputs)
     
     def normalize_embeddings(self):
         """Normalize embeddings if necessary."""
@@ -106,4 +121,4 @@ class KGEModel(tf.keras.Model):
 
     def compute_loss(self, pos_scores, neg_scores):
         """Compute the margin-based ranking loss."""
-        return tf.reduce_mean(tf.maximum(0.0, self.model.margin + pos_scores - neg_scores))
+        return tf.reduce_mean(tf.maximum(0.0, self.kge.margin + pos_scores - neg_scores))
