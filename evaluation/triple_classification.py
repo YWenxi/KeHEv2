@@ -38,7 +38,7 @@ def compute_thresholds(model, train_dataset, num_relations, num_entities):
     # Initialize a dictionary to hold positive and negative scores for each relation
     relation_scores = defaultdict(lambda: {'pos_scores': [], 'neg_scores': []})
 
-    for batch, _ in tqdm(train_dataset):
+    for batch, _ in tqdm(train_dataset, desc="Computing Scores for all training Samples."):
         # Generate negative samples
         positive_triples = batch
         negative_triples = generate_negative_samples(positive_triples, num_entities)

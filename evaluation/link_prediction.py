@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+from models.kge import KGEModel
+
 
 def rank_entities(scores, true_tail_idx):
     """
@@ -43,7 +45,7 @@ def mrr(ranks):
     """
     return np.mean(1.0 / ranks)
 
-def evaluate_link_prediction(model, test_dataset, num_entities):
+def evaluate_link_prediction(model: KGEModel, test_dataset, num_entities):
     """
     Evaluate the model on link prediction using Hits@1, Hits@10, and MRR.
     

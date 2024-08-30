@@ -25,24 +25,6 @@ def setup_logger(exp_name):
     logger = logging.getLogger()
     return logger
 
-# def self_adversarial_negative_sampling(pos_scores, neg_scores, alpha=0.5):
-#     """
-#     Apply self-adversarial negative sampling as described in the paper.
-    
-#     Args:
-#         pos_scores: Tensor of positive triple scores.
-#         neg_scores: Tensor of negative triple scores.
-#         alpha: Temperature for sampling.
-    
-#     Returns:
-#         sampled_neg_scores: Tensor of sampled negative triple scores.
-#     """
-#     # Compute the weights for sampling
-#     neg_weights = tf.exp(neg_scores * alpha)
-#     sampled_neg_scores = tf.reduce_sum(neg_weights * neg_scores) / tf.reduce_sum(neg_weights)
-#     return sampled_neg_scores
-
-# import tensorflow as tf
 
 def self_adversarial_negative_sampling(pos_score, neg_scores, gamma=1.0, alpha=0.5):
     """
@@ -120,7 +102,7 @@ def train_step(model, optimizer, batch, labels, kge_loss_fn,
 
     return total_loss
 
-def train(data_loader: DataLoader, model, optimizer, num_epochs, beta, validate_every=100, 
+def train(data_loader: DataLoader, model: KGEModel, optimizer, num_epochs, beta, validate_every=100, 
           exp_name="experiment", margin_hierarchical=6.0, margin_kge=2.0):
     """
     Training loop.
@@ -144,8 +126,10 @@ def train(data_loader: DataLoader, model, optimizer, num_epochs, beta, validate_
                 f"num_epochs={num_epochs}, "
                 f"beta={beta}, "
                 f"model={model.model_name}, "
-                f"optimizer={optimizer}, "
-                f"margin_hierarchical={margin_hierarchical}")
+                f"optimizer={optimizer}, \n"
+                f"margin_hierarchical={margin_hierarchical}"
+                f"PEP={model.pep}, "
+                f"embed_dim={model.kge.embedding_dim}")
     
     for epoch in range(num_epochs):
         # print(f"Epoch {epoch+1}/{num_epochs}")
@@ -164,7 +148,10 @@ def train(data_loader: DataLoader, model, optimizer, num_epochs, beta, validate_
             logger.info(f"Validation after Epoch {epoch+1}: Hits@1: {metrics['Hits@1']:.4f}, "
                         f"Hits@10: {metrics['Hits@10']:.4f}, MRR: {metrics['MRR']:.4f}")
             logger.info(f"Save Model at checkpoint/epoch {epoch+1}.")
-            model.save_weights(os.path.join(f'results/{exp_name}', f'model_weights.h5'))
+            model.save_embedding(f'results/{exp_name}')
+        model.save_embedding(f'results/{exp_name}')
+        if model.pep is not None:
+            model.save_threshold(f'results/{exp_name}')
     
     metrics = evaluate_link_prediction(model, data_loader.get_test_dataset(), num_entities=model.kge.num_entities)
     logger.info(f"Evaluate Link Prediction after Training {epoch+1}: Hits@1: {metrics['Hits@1']:.4f}, "
@@ -181,20 +168,19 @@ def train(data_loader: DataLoader, model, optimizer, num_epochs, beta, validate_
 
     # Print the evaluation results
     logger.info(f"Triple Classification Metrics: Accuracy: {classification_metrics['Accuracy']:.4f}, Precision: {classification_metrics['Precision']:.4f}, Recall: {classification_metrics['Recall']:.4f}, F1-Score: {classification_metrics['F1-Score']:.4f}")
-    
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a Knowledge Graph Embedding Model')
     parser.add_argument('--data_dir', type=str, default="data/yago", help='Path to the dataset directory')
     parser.add_argument('--batch_size', type=int, default=2000, help='Batch size for training')
     parser.add_argument('--embedding_dim', type=int, default=200, help='Dimension of the embeddings')
-    parser.add_argument('--num_epochs', type=int, default=500, help='Number of training epochs')
+    parser.add_argument('--num_epochs', type=int, default=1, help='Number of training epochs')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--beta', type=float, default=0.5, help='Weight for the hierarchical loss')
     parser.add_argument('--margin_kge', type=float, default=4.0, help='Margin for the kg embedding score')
     parser.add_argument('--margin_hier', type=float, default=4.0, help='Margin for the hierarchical loss')
     parser.add_argument('--model_name', type=str, default='TransE', choices=['TransE', 'RotatE'], help='The KGE model to use')
+    parser.add_argument('--pep', type=str, default="global", help="PEP strategy.")
     
     args = parser.parse_args()
     
@@ -205,7 +191,7 @@ if __name__ == "__main__":
     data_loader = DataLoader(data_dir=args.data_dir, batch_size=args.batch_size, method=2)
     model = KGEModel(model_name=args.model_name, num_entities=data_loader.num_entities, 
                      num_relations=data_loader.num_relations, 
-                     embedding_dim=args.embedding_dim)
+                     embedding_dim=args.embedding_dim, pep=args.pep)
     optimizer = tf.keras.optimizers.Adam(learning_rate=args.learning_rate)
     
     train(data_loader, model, optimizer, num_epochs=args.num_epochs, beta=args.beta, exp_name=exp_name, 
