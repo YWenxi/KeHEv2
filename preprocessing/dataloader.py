@@ -53,16 +53,16 @@ class DataLoader:
     def get_train_dataset(self):
         """Create and return the training dataset based on the method."""
         if self.method in [1, "parallel"]:
-            return self._create_tf_dataset_parallel()
+            return self._create_tf_dataset_parallel(self.normal_triples, self.isa_triples)
         elif self.method in [2, "labelling"]:
-            return self._create_tf_dataset_labelling()
+            return self._create_tf_dataset_labelling(self.normal_triples)
         else:
             return self._create_tf_dataset_normal()
 
-    def _create_tf_dataset_parallel(self):
+    def _create_tf_dataset_parallel(self, normal_triples, isa_triples):
         """Method 1: Create datasets for normal and isA triples, adjusted for batch size."""
-        normal_dataset = self._create_tf_dataset(self.normal_triples)
-        isa_dataset = self._create_tf_dataset(self.isa_triples)
+        normal_dataset = self._create_tf_dataset(normal_triples)
+        isa_dataset = self._create_tf_dataset(isa_triples)
 
         # Adjust batch sizes so we have the same number of iterations for each epoch
         normal_batch_size = max(1, self.batch_size * len(self.isa_triples) // len(self.normal_triples))
@@ -73,24 +73,27 @@ class DataLoader:
 
         return normal_dataset, isa_dataset
 
-    def _create_tf_dataset_labelling(self):
+    def _create_tf_dataset_labelling(self, normal_triples):
         """Method 2: Create a single dataset with labels for normal and isA triples."""
         # Create labels: 1 for isA triples, 0 for other triples
         isA_relations = {self.relation2id['type'], self.relation2id['isa']}
-        labels = np.array([1 if triple[1] in isA_relations else 0 for triple in self.normal_triples], dtype=int)
+        labels = np.array([1 if triple[1] in isA_relations else 0 for triple in normal_triples], dtype=int)
 
         # Create the dataset with triples and labels
-        dataset = self._create_tf_dataset(self.normal_triples, labels)
+        dataset = self._create_tf_dataset(normal_triples, labels)
         return dataset
     
     def _create_tf_dataset_normal(self):
         """Method 0: No information for isA: just triples."""
         return self._create_tf_dataset(self.normal_triples)
 
-    def get_test_dataset(self):
+    def get_test_dataset(self, labels=False):
         """Load and return the test dataset."""
         test_triples = self._load_triples('converted_normal_test.txt')
-        return self._create_tf_dataset(test_triples)
+        if labels:
+            return self._create_tf_dataset_labelling(test_triples)
+        else:
+            return self._create_tf_dataset(test_triples)
 
 
 # Usage Example:
