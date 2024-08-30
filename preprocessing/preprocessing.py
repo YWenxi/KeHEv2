@@ -4,7 +4,7 @@ import argparse
 
 def load_triples(file_path):
     """Load triples from a text file."""
-    return np.loadtxt(file_path, dtype=str, delimiter='\t')
+    return np.loadtxt(file_path, dtype=str, delimiter='\t', comments=None)
 
 def create_mappings(triples):
     """Create entity and relation mappings."""
@@ -113,7 +113,7 @@ def main(dataset_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Preprocess YAGO or DBpedia datasets.')
-    parser.add_argument('--dataset', type=str, default="data/yago",
+    parser.add_argument('--dataset', type=str, required=True,
                         help='Path to the dataset directory (e.g., data/yago or data/dp)')
     args = parser.parse_args()
 
