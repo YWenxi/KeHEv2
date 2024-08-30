@@ -18,8 +18,17 @@ class BaseKGEModel(tf.keras.Model):
         self.relation_embedding = tf.keras.layers.Embedding(
             num_relations, embedding_dim,
             embeddings_initializer=tf.keras.initializers.RandomUniform(minval=-uniform_range, maxval=uniform_range)
-        )
+        ) 
         
+        # Learnable threshold parameters for pruning
+        self.entity_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32)
+        self.relation_threshold = tf.Variable(-15.0, trainable=True, dtype=tf.float32)
+    
+    def soft_thresholding(self, embeddings, threshold):
+        # Soft threshold function using sigmoid
+        g_s = tf.nn.sigmoid(threshold)
+        pruned_embeddings = tf.sign(embeddings) * tf.nn.relu(tf.abs(embeddings) - g_s)
+        return pruned_embeddings
     
     def compute_score(self, heads, relations, tails):
         """Compute the score for a batch of triples. This should be implemented by subclasses."""
